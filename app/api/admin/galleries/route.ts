@@ -3,7 +3,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { createHash } from "crypto";
 
 export async function POST(req: NextRequest) {
-  const { couple_name, slug, wedding_date, password } = await req.json();
+  const { couple_name, slug, wedding_date, password, cover_image_url } = await req.json();
 
   if (!couple_name || !slug || !wedding_date) {
     return NextResponse.json({ error: "Campi obbligatori mancanti" }, { status: 400 });
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("galleries")
-    .insert({ couple_name, slug, wedding_date, password_hash })
+    .insert({ couple_name, slug, wedding_date, password_hash, cover_image_url: cover_image_url ?? null })
     .select("id")
     .single();
 

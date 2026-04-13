@@ -14,11 +14,34 @@ export default function NewGalleryPage() {
     setError("");
 
     const form = new FormData(e.currentTarget);
+
+    // Upload cover image first if provided
+    let cover_image_url: string | null = null;
+    const coverFile = form.get("cover_image") as File | null;
+    if (coverFile && coverFile.size > 0) {
+      const uploadForm = new FormData();
+      uploadForm.append("file", coverFile);
+      uploadForm.append("prefix", "covers");
+      const uploadRes = await fetch("/api/admin/upload", {
+        method: "POST",
+        body: uploadForm,
+      });
+      if (uploadRes.ok) {
+        const { url } = await uploadRes.json();
+        cover_image_url = url;
+      } else {
+        setError("Errore upload copertina");
+        setLoading(false);
+        return;
+      }
+    }
+
     const body = {
       couple_name: form.get("couple_name"),
       slug: form.get("slug"),
       wedding_date: form.get("wedding_date"),
       password: form.get("password") || null,
+      cover_image_url,
     };
 
     const res = await fetch("/api/admin/galleries", {
@@ -39,7 +62,9 @@ export default function NewGalleryPage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <h1 className="text-4xl font-light tracking-widest mb-10">Nuova galleria</h1>
+      <h1 className="text-4xl font-light tracking-widest mb-10">
+        Nuova galleria
+      </h1>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         <Field label="Nomi degli sposi" name="couple_name" required />
@@ -49,15 +74,30 @@ export default function NewGalleryPage() {
           required
           hint="Es: giulia-e-marco — usato nell'indirizzo web"
         />
-        <Field label="Data del matrimonio" name="wedding_date" type="date" required />
+        <Field
+          label="Data del matrimonio"
+          name="wedding_date"
+          type="date"
+          required
+        />
         <Field
           label="Password (opzionale)"
           name="password"
           type="password"
           hint="Lascia vuoto per una galleria pubblica"
         />
+        <Field
+          label="Foto copertina (opzionale)"
+          name="cover_image"
+          type="file"
+          hint="Puoi aggiungerla o cambiarla dopo"
+        />
 
-        {error && <p className="text-sm" style={{ color: "#b94a4a" }}>{error}</p>}
+        {error && (
+          <p className="text-sm" style={{ color: "#b94a4a" }}>
+            {error}
+          </p>
+        )}
 
         <button
           type="submit"
@@ -86,7 +126,9 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs tracking-[0.2em] uppercase opacity-60">{label}</label>
+      <label className="text-xs tracking-[0.2em] uppercase opacity-60">
+        {label}
+      </label>
       <input
         name={name}
         type={type}

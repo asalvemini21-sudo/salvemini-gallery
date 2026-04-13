@@ -1,4 +1,5 @@
 import Link from "next/link";
+import LogoutButton from "./LogoutButton";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -13,6 +14,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         >
           Gallerie
         </Link>
+        <LogoutButton />
       </nav>
       <main className="flex-1 px-8 py-10">{children}</main>
     </div>

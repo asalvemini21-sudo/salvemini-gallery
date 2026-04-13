@@ -1,0 +1,336 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
+import Link from "next/link";
+
+type Photo = {
+  id: string;
+  url: string;
+  thumbnail_url: string | null;
+  order: number;
+};
+
+type Section = {
+  id: string;
+  name: string;
+  order: number;
+  photos: Photo[];
+};
+
+type Gallery = {
+  id: string;
+  slug: string;
+  couple_name: string;
+  wedding_date: string;
+  cover_image_url: string | null;
+  is_published: boolean;
+};
+
+interface Props {
+  gallery: Gallery;
+  sections: Section[];
+}
+
+export default function GalleryEditor({ gallery, sections }: Props) {
+  const router = useRouter();
+  const [publishing, setPublishing] = useState(false);
+  const [newSectionName, setNewSectionName] = useState("");
+  const [addingSection, setAddingSection] = useState(false);
+  const [uploadingSection, setUploadingSection] = useState<string | null>(null);
+  const [coverUploading, setCoverUploading] = useState(false);
+  const [deletingGallery, setDeletingGallery] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  async function togglePublish() {
+    setPublishing(true);
+    await fetch(`/api/admin/galleries/${gallery.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_published: !gallery.is_published }),
+    });
+    setPublishing(false);
+    router.refresh();
+  }
+
+  async function addSection(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newSectionName.trim()) return;
+    setAddingSection(true);
+    await fetch(`/api/admin/galleries/${gallery.id}/sections`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newSectionName.trim() }),
+    });
+    setNewSectionName("");
+    setAddingSection(false);
+    router.refresh();
+  }
+
+  async function deleteSection(sectionId: string) {
+    if (!confirm("Eliminare questa sezione e tutte le sue foto?")) return;
+    await fetch(`/api/admin/galleries/${gallery.id}/sections/${sectionId}`, {
+      method: "DELETE",
+    });
+    router.refresh();
+  }
+
+  async function uploadPhotos(sectionId: string, files: FileList) {
+    if (!files.length) return;
+    setUploadingSection(sectionId);
+    const formData = new FormData();
+    for (const file of Array.from(files)) {
+      formData.append("photos", file);
+    }
+    await fetch(
+      `/api/admin/galleries/${gallery.id}/sections/${sectionId}/photos`,
+      { method: "POST", body: formData }
+    );
+    setUploadingSection(null);
+    router.refresh();
+  }
+
+  async function deletePhoto(photoId: string) {
+    if (!confirm("Eliminare questa foto?")) return;
+    await fetch(`/api/admin/photos/${photoId}`, { method: "DELETE" });
+    router.refresh();
+  }
+
+  async function uploadCover(file: File) {
+    setCoverUploading(true);
+    const uploadForm = new FormData();
+    uploadForm.append("file", file);
+    uploadForm.append("prefix", "covers");
+    const res = await fetch("/api/admin/upload", {
+      method: "POST",
+      body: uploadForm,
+    });
+    if (res.ok) {
+      const { url } = await res.json();
+      await fetch(`/api/admin/galleries/${gallery.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cover_image_url: url }),
+      });
+    }
+    setCoverUploading(false);
+    router.refresh();
+  }
+
+  async function deleteGallery() {
+    if (!confirm(`Eliminare definitivamente la galleria "${gallery.couple_name}"?`)) return;
+    setDeletingGallery(true);
+    await fetch(`/api/admin/galleries/${gallery.id}`, { method: "DELETE" });
+    router.push("/admin/galleries");
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      {/* Breadcrumb */}
+      <div className="mb-4">
+        <Link
+          href="/admin/galleries"
+          className="text-sm opacity-40 hover:opacity-100 transition-opacity"
+        >
+          ← Gallerie
+        </Link>
+      </div>
+
+      {/* Header */}
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <h1 className="text-4xl font-light tracking-widest">
+            {gallery.couple_name}
+          </h1>
+          <p className="text-sm opacity-50 mt-1">
+            {new Date(gallery.wedding_date).toLocaleDateString("it-IT", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
+            {" · "}
+            <span className="font-mono">{gallery.slug}</span>
+          </p>
+        </div>
+        <div className="flex items-center gap-3 mt-2 flex-shrink-0">
+          <Link
+            href={`/${gallery.slug}`}
+            target="_blank"
+            className="text-sm tracking-[0.2em] uppercase opacity-40 hover:opacity-100 transition-opacity"
+          >
+            Anteprima →
+          </Link>
+          <button
+            onClick={togglePublish}
+            disabled={publishing}
+            className="text-sm tracking-[0.2em] uppercase border px-4 py-2 hover:opacity-60 transition-opacity disabled:opacity-40"
+            style={{
+              borderColor: gallery.is_published ? "#4a7a4a" : "currentColor",
+              color: gallery.is_published ? "#4a7a4a" : "currentColor",
+            }}
+          >
+            {publishing
+              ? "…"
+              : gallery.is_published
+              ? "Pubblicata ✓"
+              : "Pubblica"}
+          </button>
+        </div>
+      </div>
+
+      {/* Cover image */}
+      <div className="border border-[#d0d4c8] p-6 mb-8">
+        <h2 className="text-xs tracking-[0.2em] uppercase opacity-60 mb-4">
+          Foto copertina
+        </h2>
+        <div className="flex items-center gap-6">
+          {gallery.cover_image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={gallery.cover_image_url}
+              alt="Copertina"
+              className="w-32 h-20 object-cover"
+            />
+          ) : (
+            <div className="w-32 h-20 border border-dashed border-[#d0d4c8] flex items-center justify-center text-xs opacity-40">
+              Nessuna
+            </div>
+          )}
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) uploadCover(file);
+              e.target.value = "";
+            }}
+          />
+          <button
+            onClick={() => coverInputRef.current?.click()}
+            disabled={coverUploading}
+            className="text-xs tracking-[0.2em] uppercase border border-current px-4 py-2 hover:opacity-60 transition-opacity disabled:opacity-40"
+          >
+            {coverUploading ? "Upload…" : "Cambia copertina"}
+          </button>
+        </div>
+      </div>
+
+      {/* Sections */}
+      <h2 className="text-2xl font-light tracking-widest mb-6">Sezioni</h2>
+
+      {!sections.length && (
+        <p className="text-sm tracking-widest uppercase opacity-50 mb-6">
+          Nessuna sezione. Aggiungine una qui sotto.
+        </p>
+      )}
+
+      <div className="flex flex-col gap-6 mb-10">
+        {sections.map((section) => (
+          <div key={section.id} className="border border-[#d0d4c8] p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-light tracking-widest">
+                {section.name}
+              </h3>
+              <div className="flex items-center gap-4">
+                <span className="text-xs opacity-40">
+                  {section.photos.length} foto
+                </span>
+                <label
+                  className="text-xs tracking-[0.2em] uppercase border border-current px-3 py-1 cursor-pointer hover:opacity-60 transition-opacity"
+                  style={{
+                    opacity: uploadingSection === section.id ? 0.4 : undefined,
+                    pointerEvents:
+                      uploadingSection === section.id ? "none" : undefined,
+                  }}
+                >
+                  {uploadingSection === section.id
+                    ? "Upload…"
+                    : "Aggiungi foto"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files)
+                        uploadPhotos(section.id, e.target.files);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <button
+                  onClick={() => deleteSection(section.id)}
+                  className="text-xs opacity-30 hover:opacity-100 transition-opacity"
+                >
+                  Elimina sezione
+                </button>
+              </div>
+            </div>
+
+            {!section.photos.length && (
+              <p className="text-xs opacity-40">Nessuna foto.</p>
+            )}
+
+            <div className="grid grid-cols-6 gap-2">
+              {section.photos.map((photo) => (
+                <div key={photo.id} className="relative group aspect-square">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={photo.thumbnail_url ?? photo.url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    onClick={() => deletePhoto(photo.id)}
+                    className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs tracking-widest uppercase"
+                  >
+                    Elimina
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Add section */}
+      <form
+        onSubmit={addSection}
+        className="flex gap-4 items-end border-t border-[#d0d4c8] pt-8 mb-16"
+      >
+        <div className="flex flex-col gap-1 flex-1">
+          <label className="text-xs tracking-[0.2em] uppercase opacity-60">
+            Nuova sezione
+          </label>
+          <input
+            value={newSectionName}
+            onChange={(e) => setNewSectionName(e.target.value)}
+            placeholder="es. Cerimonia"
+            className="border-b border-current bg-transparent py-2 text-lg tracking-wide outline-none"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={addingSection || !newSectionName.trim()}
+          className="text-sm tracking-[0.2em] uppercase border border-current px-6 py-2 hover:opacity-60 transition-opacity disabled:opacity-40"
+        >
+          {addingSection ? "…" : "Aggiungi sezione"}
+        </button>
+      </form>
+
+      {/* Danger zone */}
+      <div className="border-t border-[#d0d4c8] pt-8">
+        <button
+          onClick={deleteGallery}
+          disabled={deletingGallery}
+          className="text-xs tracking-[0.2em] uppercase opacity-30 hover:opacity-100 transition-opacity disabled:opacity-20"
+          style={{ color: "#b94a4a" }}
+        >
+          {deletingGallery ? "Eliminazione…" : "Elimina galleria"}
+        </button>
+      </div>
+    </div>
+  );
+}
