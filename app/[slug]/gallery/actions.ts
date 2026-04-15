@@ -2,9 +2,8 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-
-// TODO: replace with DB hash lookup per gallery
-const EXAMPLE_PASSWORD = "sposi2025";
+import { createHash } from "crypto";
+import { createServerClient } from "@/lib/supabase/server";
 
 export async function unlockGallery(
   slug: string,
@@ -17,10 +16,23 @@ export async function unlockGallery(
     return { error: "Inserisci la password." };
   }
 
-  // TODO: fetch gallery.password_hash from DB, compare with
-  // createHash('sha256').update(password).digest('hex')
-  if (password !== EXAMPLE_PASSWORD) {
-    return { error: "Password errata. Riprova." };
+  const supabase = createServerClient();
+  const { data: gallery } = await supabase
+    .from("galleries")
+    .select("password_hash")
+    .eq("slug", slug)
+    .eq("is_published", true)
+    .single();
+
+  if (!gallery) {
+    return { error: "Galleria non trovata." };
+  }
+
+  if (gallery.password_hash) {
+    const hash = createHash("sha256").update(password).digest("hex");
+    if (hash !== gallery.password_hash) {
+      return { error: "Password errata. Riprova." };
+    }
   }
 
   const cookieStore = await cookies();

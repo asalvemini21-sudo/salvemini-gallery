@@ -72,7 +72,7 @@ export default function NewGalleryPage() {
           label="Slug URL"
           name="slug"
           required
-          hint="Es: giulia-e-marco — usato nell'indirizzo web"
+          hint="Es: giulia-e-marco — spazi e + vengono convertiti in -"
         />
         <Field
           label="Data del matrimonio"

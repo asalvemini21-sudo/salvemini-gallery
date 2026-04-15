@@ -1,16 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-
-// TODO: replace with Supabase query once migration is applied
-const EXAMPLE_GALLERY = {
-  slug: "elena-marco",
-  couple_name: "Elena & Marco",
-  wedding_date: "14 Giugno 2025",
-  cover_image_url:
-    "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=2400&q=80",
-  password_hash: null,
-  is_published: true,
-};
+import { createServerClient } from "@/lib/supabase/server";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -19,8 +9,13 @@ type Props = {
 export default async function GalleryPage({ params }: Props) {
   const { slug } = await params;
 
-  // Fallback to example data until DB is ready
-  const gallery = slug === EXAMPLE_GALLERY.slug ? EXAMPLE_GALLERY : null;
+  const supabase = createServerClient();
+  const { data: gallery } = await supabase
+    .from("galleries")
+    .select("slug, couple_name, wedding_date, cover_image_url, is_published")
+    .eq("slug", slug)
+    .eq("is_published", true)
+    .single();
 
   if (!gallery) {
     return (
@@ -32,19 +27,28 @@ export default async function GalleryPage({ params }: Props) {
     );
   }
 
+  const weddingDate = new Date(gallery.wedding_date).toLocaleDateString("it-IT", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
   return (
     <main className="relative h-screen w-full overflow-hidden">
-      {/* Cover image */}
-      <Image
-        src={gallery.cover_image_url}
-        alt={gallery.couple_name}
-        fill
-        priority
-        className="object-cover object-center"
-        sizes="100vw"
-      />
+      {gallery.cover_image_url ? (
+        <Image
+          src={gallery.cover_image_url}
+          alt={gallery.couple_name}
+          fill
+          priority
+          className="object-cover object-center"
+          sizes="100vw"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-[#1a1a18]" />
+      )}
 
-      {/* Gradient overlay — light at top, darker at bottom */}
+      {/* Gradient overlay */}
       <div
         className="absolute inset-0"
         style={{
@@ -56,7 +60,7 @@ export default async function GalleryPage({ params }: Props) {
       {/* Content */}
       <div className="absolute inset-0 flex flex-col items-center justify-end pb-24 px-6 text-center text-white">
         <p className="text-xs tracking-[0.45em] uppercase mb-5 opacity-80">
-          {gallery.wedding_date}
+          {weddingDate}
         </p>
 
         <h1

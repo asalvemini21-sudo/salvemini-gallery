@@ -3,11 +3,13 @@ import { createServerClient } from "@/lib/supabase/server";
 import { createHash } from "crypto";
 
 export async function POST(req: NextRequest) {
-  const { couple_name, slug, wedding_date, password, cover_image_url } = await req.json();
+  const { couple_name, slug: rawSlug, wedding_date, password, cover_image_url } = await req.json();
 
-  if (!couple_name || !slug || !wedding_date) {
+  if (!couple_name || !rawSlug || !wedding_date) {
     return NextResponse.json({ error: "Campi obbligatori mancanti" }, { status: 400 });
   }
+
+  const slug = rawSlug.trim().toLowerCase().replace(/[+\s]+/g, "-");
 
   const password_hash = password
     ? createHash("sha256").update(password).digest("hex")

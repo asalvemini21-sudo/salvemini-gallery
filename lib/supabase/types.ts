@@ -69,6 +69,7 @@ export type Database = {
           section_id: string;
           url: string;
           thumbnail_url: string | null;
+          filename: string | null;
           order: number;
         };
         Insert: {
@@ -76,6 +77,7 @@ export type Database = {
           section_id: string;
           url: string;
           thumbnail_url?: string | null;
+          filename?: string | null;
           order?: number;
         };
         Update: {
@@ -83,6 +85,7 @@ export type Database = {
           section_id?: string;
           url?: string;
           thumbnail_url?: string | null;
+          filename?: string | null;
           order?: number;
         };
         Relationships: [

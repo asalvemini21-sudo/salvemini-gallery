@@ -29,7 +29,7 @@ export async function POST(
   let nextOrder =
     existing?.[0]?.order !== undefined ? existing[0].order + 1 : 0;
 
-  const rows: { url: string; section_id: string; order: number }[] = [];
+  const rows: { url: string; thumbnail_url: string; filename: string; section_id: string; order: number }[] = [];
 
   for (const file of validFiles) {
     const ext = file.name.split(".").pop() ?? "jpg";
@@ -47,7 +47,8 @@ export async function POST(
       })
     );
 
-    rows.push({ url: `${R2_PUBLIC_URL}/${key}`, section_id: sectionId, order: nextOrder++ });
+    const url = `${R2_PUBLIC_URL}/${key}`;
+    rows.push({ url, thumbnail_url: url, filename: file.name, section_id: sectionId, order: nextOrder++ });
   }
 
   const { error } = await supabase.from("photos").insert(rows);

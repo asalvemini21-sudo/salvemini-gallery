@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { createHash } from "crypto";
 import { createServerClient } from "@/lib/supabase/server";
 
 export async function PATCH(
@@ -6,7 +7,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const body = await request.json();
+  const { password, ...body } = await request.json();
+
+  if (typeof password === "string" && password.length > 0) {
+    body.password_hash = createHash("sha256").update(password).digest("hex");
+  }
 
   const supabase = createServerClient();
   const { error } = await supabase.from("galleries").update(body).eq("id", id);
